@@ -140,7 +140,7 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;bac
 .chat-replay{display:inline-flex;gap:7px;align-items:center;margin:12px auto 0;padding:9px 15px;color:#ffc5a6;border:1px solid #ff774550;border-radius:999px;background:#ff5b1910;cursor:pointer;font:700 12px Tajawal}
 .chat-replay:hover{background:#ff5b1926}
 @media(prefers-reduced-motion:reduce){.group-animation .chat-bubble,.group-animation .chat-system,.group-animation .reaction{opacity:1!important;transform:none!important;animation:none!important}.group-animation.playing *{animation:none!important}}
-</style></head>
+.group-panel[hidden]{display:none!important}.group-switch [role="tab"]{cursor:pointer;touch-action:manipulation}.group-switch [role="tab"]:focus-visible{outline:2px solid #ffae7c;outline-offset:3px}</style></head>
 <body class="lock"><div id="scroll-progress" aria-hidden="true"></div><button id="back-to-top" type="button" aria-label="العودة إلى أعلى الصفحة">↑</button><div class="loader" id="loader"><div class="load-in"><div class="load-top"><b>DROP CODE</b><span class="load-num" id="loadNum">00</span></div><div class="load-line"><i id="loadBar"></i></div></div></div><canvas id="particles"></canvas><div class="ambient a1"></div><div class="ambient a2"></div><div class="noise"></div><div class="cursor" id="cursor"></div><div class="cursor-dot" id="cursorDot"></div>
 <nav class="nav" id="nav"><div class="wrap navin"><a class="brand" href="#top"><span class="mark"><img class="brand-image" src="assets/dropcode-mark.webp" alt=""></span><span><b>دروب كود</b><small>DROP CODE</small></span></a><div class="links" id="links"><a href="#map">خريطة المشاريع</a><a href="#map">عملاؤنا</a><a href="#services">خدماتنا</a><a href="#process">كيف نعمل</a><a href="#group-demo">شرح القروبات</a></div><a class="nav-cta magnetic" href="#contact">ابدأ مشروعك</a><button class="menu" id="menu" aria-label="فتح القائمة">☰</button></div></nav>
 <main id="top">
@@ -165,7 +165,45 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;bac
 <section id="contact"><div class="wrap"><div class="cta reveal"><div><h2>عندك فكرة؟<br>خلّيها تتحرك.</h2><p>احكِ لنا عن مشروعك، وسنحوّله إلى نظام قوي يحمل اسمك وهويتك.</p></div><a class="cta-btn magnetic" href="https://wa.me/962790053532?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%20Drop%20Code%D8%8C%20%D8%B9%D9%86%D8%AF%D9%8A%20%D9%81%D9%83%D8%B1%D8%A9%20%D9%85%D8%B4%D8%B1%D9%88%D8%B9" target="_blank" rel="noopener">ابدأ مشروعك على واتساب</a></div></div></section></main>
 <footer><div class="wrap"><div class="foot"><div><div class="brand"><span class="mark"><img class="brand-image" src="assets/dropcode-mark.webp" alt=""></span><span><b>دروب كود</b><small>DROP CODE</small></span></div><p>نصنع أنظمة رقمية قوية بهوية واضحة وأداء موثوق وتجربة تستحق أن تُستخدم كل يوم.</p></div><div><h4>تصفّح</h4><a href="#map">خريطة المشاريع</a><a href="#map">خريطة العملاء</a><a href="#services">خدماتنا</a></div><div><h4>تواصل</h4><a href="https://wa.me/962790053532">WhatsApp</a><a href="mailto:info@dropcodejo.com">info@dropcodejo.com</a></div></div><div class="copy"><span>© 2026 Drop Code. جميع الحقوق محفوظة.</span><span>Designed & Developed by Yahya Saeed</span></div></div></footer>
 <script>
-const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);const loader=$('#loader'),loadNum=$('#loadNum'),loadBar=$('#loadBar');let progress=0;const timer=setInterval(()=>{progress+=Math.ceil(Math.random()*8);if(progress>=100){progress=100;clearInterval(timer);setTimeout(()=>{loader.classList.add('done');document.body.classList.remove('lock')},350)}loadNum.textContent=String(progress).padStart(2,'0');loadBar.style.width=progress+'%'},55);
+
+// Isolated tab switch: works even if unrelated visual effects fail.
+(function initGroupTabs(){
+  const tabs=[...document.querySelectorAll('.group-switch [role="tab"]')];
+  const panels=tabs.map(tab=>document.getElementById(tab.getAttribute('aria-controls')));
+  function activate(index,focus){
+    if(index<0||index>=tabs.length||!panels[index])return;
+    tabs.forEach((tab,i)=>{
+      const selected=i===index;
+      tab.setAttribute('aria-selected',String(selected));
+      tab.tabIndex=selected?0:-1;
+      if(panels[i]){
+        panels[i].hidden=!selected;
+        panels[i].classList.toggle('active',selected);
+        panels[i].setAttribute('aria-hidden',String(!selected));
+      }
+    });
+    if(focus)tabs[index].focus();
+    const chat=panels[index].querySelector('.group-animation');
+    if(chat&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+      chat.classList.remove('playing');
+      void chat.offsetWidth;
+      chat.classList.add('playing');
+    }
+  }
+  tabs.forEach((tab,i)=>{
+    tab.addEventListener('click',()=>activate(i,false));
+    tab.addEventListener('keydown',e=>{
+      if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
+        e.preventDefault();activate((i+(e.key==='ArrowLeft'?1:-1)+tabs.length)%tabs.length,true);
+      }else if(e.key==='Home'||e.key==='End'){
+        e.preventDefault();activate(e.key==='Home'?0:tabs.length-1,true);
+      }
+    });
+  });
+  activate(0,false);
+})();
+
+const $=s=>document.querySelector(s),$=s=>document.querySelectorAll(s);const loader=$('#loader'),loadNum=$('#loadNum'),loadBar=$('#loadBar');let progress=0;const timer=setInterval(()=>{progress+=Math.ceil(Math.random()*8);if(progress>=100){progress=100;clearInterval(timer);setTimeout(()=>{loader.classList.add('done');document.body.classList.remove('lock')},350)}loadNum.textContent=String(progress).padStart(2,'0');loadBar.style.width=progress+'%'},55);
 const nav=$('#nav'),links=$('#links');addEventListener('scroll',()=>nav.classList.toggle('scrolled',scrollY>30),{passive:true});$('#menu').onclick=()=>links.classList.toggle('open');$$('#links a').forEach(a=>a.onclick=()=>links.classList.remove('open'));
 function count(el){if(el.dataset.done)return;el.dataset.done=1;const n=+el.dataset.target,s=performance.now();function go(t){const p=Math.min((t-s)/1300,1);el.textContent=Math.round(n*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(go)}requestAnimationFrame(go)}const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;e.target.classList.add('show');e.target.querySelectorAll?.('.counter').forEach(count);if(e.target.classList.contains('counter'))count(e.target);io.unobserve(e.target)}),{threshold:.16});$$('.reveal,.counter').forEach(x=>io.observe(x));
 const cursor=$('#cursor'),dot=$('#cursorDot');addEventListener('pointermove',e=>{cursor.style.left=dot.style.left=e.clientX+'px';cursor.style.top=dot.style.top=e.clientY+'px'});$$('a,button,.project').forEach(x=>{x.onmouseenter=()=>cursor.classList.add('big');x.onmouseleave=()=>cursor.classList.remove('big')});$$('.magnetic').forEach(x=>{x.onpointermove=e=>{const r=x.getBoundingClientRect();x.style.transform=`translate(${(e.clientX-r.left-r.width/2)*.12}px,${(e.clientY-r.top-r.height/2)*.15}px)`};x.onpointerleave=()=>x.style.transform=''});
@@ -179,8 +217,7 @@ function replayGroupChat(el){if(!el)return;el.classList.remove('playing');if(red
 if(!reduceChatMotion){groupChats.forEach(el=>{if(!el.closest('[hidden]'))replayGroupChat(el)});setInterval(()=>groupChats.forEach(el=>{if(!el.closest('[hidden]'))replayGroupChat(el)}),10000)}
 $$('.chat-replay').forEach(btn=>btn.addEventListener('click',()=>replayGroupChat(btn.closest('.group-animation'))));
 $$('.client-row,.map-logo').forEach(el=>el.addEventListener('click',()=>{const id=el.dataset.client;$$('.client-row,.map-logo').forEach(x=>x.classList.toggle(x.classList.contains('client-row')?'active':'selected',x.dataset.client===id))}));
-const groupTabs=document.querySelectorAll('.group-switch [role="tab"]');
-groupTabs.forEach(tab=>tab.addEventListener('click',()=>{groupTabs.forEach(t=>{const active=t===tab;t.setAttribute('aria-selected',String(active));const panel=document.getElementById(t.getAttribute('aria-controls'));panel.hidden=!active;panel.classList.toggle('active',active);if(active)replayGroupChat(panel.querySelector('.group-animation'))})}));
+
 
 /* cinematic interactions; respect user motion preference */
 const motionAllowed=!matchMedia('(prefers-reduced-motion: reduce)').matches;
