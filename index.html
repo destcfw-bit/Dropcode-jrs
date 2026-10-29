@@ -340,6 +340,7 @@ if(motionAllowed&&matchMedia('(min-width:900px) and (pointer:fine)').matches){
   const original={msg:msg.innerHTML,result:result.textContent,name:resultName.textContent,info:resultInfo.textContent};
   let step=0,credit=0;
   function numbers(){if(!north){const count=kind.value==='like'?1:Number(kind.value);return {count,amount:count*.25}}const count=northUnits[Number(price.value)];return {count,amount:count*(kind.value==='order'?1:.75)}}
+  function notifyDashboard(action){window.dispatchEvent(new CustomEvent('dc:simulation',{detail:{group:north?'الشمال':'عمّان',action,amount:numbers().amount,credit,step,price:north?price.value:null}}))}
   function update(){
    const n=numbers();
    msg.innerHTML=north?('السعر '+price.value+'<br>طلب من إربد إلى عمّان'):'طبربور → الصويفية<br>توصيل · 3 د.أ';
@@ -351,14 +352,58 @@ if(motionAllowed&&matchMedia('(min-width:900px) and (pointer:fine)').matches){
    chat.dataset.step=String(step);
   }
   function manual(){chat.classList.remove('playing','replay');chat.classList.add('manual')}
-  start.addEventListener('click',()=>{manual();step=1;credit=0;status.textContent='وصل الطلب · بانتظار «تم»';update()});
-  done.addEventListener('click',()=>{if(step!==1)return;manual();step=2;status.textContent=north?'تم الرد · بانتظار 👍':'تم الرد · بانتظار التفاعل';update()});
-  like.addEventListener('click',()=>{if(step!==2)return;manual();step=3;credit=numbers().amount;status.textContent='تم الاعتماد وتحديث الرصيد';update()});
-  undo.addEventListener('click',()=>{if(step!==3)return;manual();step=4;credit=0;status.textContent='أُلغي التفاعل ورجع الرصيد';update()});
+  start.addEventListener('click',()=>{manual();step=1;credit=0;status.textContent='وصل الطلب · بانتظار «تم»';update();notifyDashboard('طلب جديد')});
+  done.addEventListener('click',()=>{if(step!==1)return;manual();step=2;status.textContent=north?'تم الرد · بانتظار 👍':'تم الرد · بانتظار التفاعل';update();notifyDashboard('تم الرد')});
+  like.addEventListener('click',()=>{if(step!==2)return;manual();step=3;credit=numbers().amount;status.textContent='تم الاعتماد وتحديث الرصيد';update();notifyDashboard('اعتماد')});
+  undo.addEventListener('click',()=>{if(step!==3)return;manual();step=4;credit=0;status.textContent='أُلغي التفاعل ورجع الرصيد';update();notifyDashboard('إلغاء')});
   [kind,price].forEach(input=>input.addEventListener('change',()=>{manual();step=0;credit=0;status.textContent='تم تغيير المثال؛ اضغط إرسال الطلب';update()}));
   auto.addEventListener('click',()=>{chat.classList.remove('manual');chat.dataset.step='';step=0;credit=0;status.textContent='المشهد التلقائي يعمل';msg.innerHTML=original.msg;result.textContent=original.result;resultName.textContent=original.name;resultInfo.textContent=original.info;updateBalanceOnly();if(typeof replayGroupChat==='function')replayGroupChat(chat)});
   function updateBalanceOnly(){balance.textContent='10.000';done.disabled=true;like.disabled=true;undo.disabled=true}
   update();
  });
+})();
+
+/* EXPERIENCE LAB: all local demo values, no customer or backend requests */
+(function(){
+ const el=id=>document.getElementById(id);
+ const ledger=[];let current=10,total=0,latest=0,role='captain',sound=false,audio=null;
+ const fmt=v=>Number(v).toFixed(3);
+ function soundCue(){if(!sound)return;try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=620;g.gain.setValueAtTime(.0001,audio.currentTime);g.gain.exponentialRampToValueAtTime(.045,audio.currentTime+.012);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+.11);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+.12)}catch(e){sound=false}}
+ function render(){
+ el('liveBalance').textContent=fmt(current);el('liveOrders').textContent=String(total);el('liveCommission').textContent=fmt(latest);
+ el('dcPhoneBalance').textContent=fmt(current)+' د.أ';el('dcPhoneOrders').textContent=String(total);el('dcPhoneLast').textContent=latest?fmt(latest):'بانتظار طلب';
+ const rows=el('dcLedgerRows');rows.replaceChildren();
+ if(!ledger.length){rows.textContent='لا يوجد طلبات بعد.';return}
+ ledger.slice(-6).reverse().forEach(item=>{const row=document.createElement('div');row.className='dc-ledger-row';const label=document.createElement('span'),value=document.createElement('b');label.textContent=item.group+' · '+item.action;value.textContent=(item.action==='إلغاء'?'-':'+')+fmt(item.amount)+' د.أ';row.append(label,value);rows.append(row)})
+ }
+ addEventListener('dc:simulation',event=>{
+  const d=event.detail;el('liveActivity').textContent='قروبات '+d.group+' — '+d.action+(d.action==='اعتماد'?' · '+fmt(d.amount)+' د.أ':'');
+  [...el('liveSteps').children].forEach((node,i)=>node.classList.toggle('active',i===Math.min(d.step,4)-1));
+  if(d.action==='اعتماد'){ledger.push({group:d.group,action:'اعتماد',amount:d.amount});current+=d.amount;latest=d.amount;total++;soundCue()}
+  if(d.action==='إلغاء'){const index=ledger.findLastIndex(x=>x.group===d.group&&x.action==='اعتماد'&&!x.cancelled);if(index>=0){ledger[index].cancelled=true;ledger.push({group:d.group,action:'إلغاء',amount:d.amount});current-=d.amount;total=Math.max(0,total-1)}latest=0;soundCue()}
+  render();
+ });
+ el('dcShowStatement')?.addEventListener('click',()=>{const ledgerBox=el('dcLedger');ledgerBox.hidden=!ledgerBox.hidden});
+ el('dcResetLedger')?.addEventListener('click',()=>{ledger.length=0;current=10;total=0;latest=0;el('liveActivity').textContent='تم تصفير كشف التجربة. جرّب طلباً جديداً.';render()});
+ document.querySelectorAll('[data-dc-go]').forEach(b=>b.addEventListener('click',()=>el(b.dataset.dcGo)?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'})));
+ document.querySelectorAll('[data-role]').forEach(b=>b.addEventListener('click',()=>{role=b.dataset.role;document.querySelectorAll('[data-role]').forEach(x=>x.classList.toggle('active',x===b));el('dcPhoneRole').textContent=role==='admin'?'لوحة الإدارة':'لوحة الكابتن';el('dcPhoneTitle').textContent=role==='admin'?'إدارة الجرد والطلبات':'أهلاً في نظامك'}));
+ const type=el('dcProjectType'),brief=el('dcBrief'),wa=el('dcWhatsAppBrief');const number='962790053532';
+ function buildBrief(){
+ const features=[...document.querySelectorAll('.dc-feature-grid input:checked')].map(c=>c.value),desc=brief.value.trim();
+ const message='مرحباً DropCode، أريد طلب مشروع جديد.\nنوع المشروع: '+type.value+'\nالميزات: '+(features.join('، ')||'لم أحدد')+(desc?'\nالتفاصيل: '+desc:'')+'\nأرجو التواصل لمناقشة التفاصيل وعرض السعر.';
+ el('dcBriefPreview').textContent=type.value+' — '+(features.join('، ')||'بدون ميزات محددة')+(desc?' — '+desc:'');
+ wa.href='https://wa.me/'+number+'?text='+encodeURIComponent(message);
+ }
+ [type,brief,...document.querySelectorAll('.dc-feature-grid input')].forEach(e=>e.addEventListener('input',buildBrief));buildBrief();
+ const sections=[['الرئيسية','top'],['محاكاة القروبات','group-demo'],['لوحة الجرد والهاتف','studio'],['صمّم نظامك','system-builder'],['خريطة المشاريع','map'],['خدماتنا','services'],['طريقة العمل','process'],['تواصل معنا','contact']];
+ const palette=el('dcPalette'),search=el('dcPaletteInput'),items=el('dcPaletteResults'),trigger=el('dcPaletteTrigger');
+ function fill(query=''){items.replaceChildren();sections.filter(pair=>pair[0].includes(query.trim())).forEach(([name,id])=>{const b=document.createElement('button');b.type='button';b.className='dc-pal-item';b.textContent='↗ '+name;b.onclick=()=>{palette.hidden=true;document.body.style.overflow='';el(id)?.scrollIntoView({behavior:'smooth'})};items.append(b)})}
+ function openPalette(){palette.hidden=false;fill();search.value='';search.focus()}
+ function closePalette(){palette.hidden=true;document.body.style.overflow=''}
+ trigger.onclick=openPalette;el('dcClosePalette').onclick=closePalette;palette.onclick=e=>{if(e.target===palette)closePalette()};search.oninput=()=>fill(search.value);
+ addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();palette.hidden?openPalette():closePalette()}if(e.key==='Escape'&&!palette.hidden)closePalette()});
+ const soundBtn=el('dcSound');soundBtn.onclick=()=>{sound=!sound;soundBtn.setAttribute('aria-pressed',String(sound));soundBtn.textContent=sound?'♫ On':'♫ Off';if(sound)soundCue()};
+ let logoClicks=0,secretTimeout;document.querySelector('.brand')?.addEventListener('click',()=>{logoClicks++;if(logoClicks>=5){logoClicks=0;const x=el('dcSecret');x.hidden=false;clearTimeout(secretTimeout);secretTimeout=setTimeout(()=>{x.hidden=true},1700)}});
+ render();
 })();
 </script></body></html>
